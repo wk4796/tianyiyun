@@ -2,7 +2,8 @@
 # # -- coding: utf-8 --
 # # @Time : 2023/4/4 9:23
 # #源作者：https://www.52pojie.cn/thread-1231190-1-1.html
-# # -------------------------------本人只负责修改并测试可以运行，多账号可能会很慢。耐心等待
+# #出处：https://github.com/vistal8/tianyiyun
+# # -本人只负责修改并测试可以运行，多账号可能会很慢。耐心等待
 # # cron "30 4 * * *" script-path=xxx.py,tag=匹配cron用
 # # const $ = new Env('天翼云盘签到');
 # # 变量 ty_username 用户名 &隔开  ty_password 密码 &隔开
