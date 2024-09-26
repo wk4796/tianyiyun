@@ -7,6 +7,7 @@
 # # cron "30 4 * * *" script-path=xxx.py,tag=匹配cron用
 # # const $ = new Env('天翼云盘签到');
 # # 变量 ty_username 用户名 &隔开  ty_password 密码 &隔开
+# # 示例 ty_username 1334567228&133222222   ty_password 123456&123456
 import time
 import os
 import random
