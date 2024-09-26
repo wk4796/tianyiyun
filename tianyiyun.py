@@ -1,6 +1,6 @@
 # #!/usr/bin/python3
 # # -- coding: utf-8 --
-# # @Time : 2023/4/4 9:23
+# # @Time : 2024/9/26 8:23
 # #源作者：https://www.52pojie.cn/thread-1231190-1-1.html
 # #出处：https://github.com/vistal8/tianyiyun
 # # -本人只负责修改并测试可以运行，多账号可能会很慢。耐心等待
@@ -8,6 +8,7 @@
 # # const $ = new Env('天翼云盘签到');
 # # 变量 ty_username 用户名 &隔开  ty_password 密码 &隔开
 # # 示例 ty_username 1334567228&133222222   ty_password 123456&123456
+# # 出现验证码错误问题，概率账号风控。手动登陆网页版 输入验证码。建议一天运行一次就可以
 import time
 import os
 import random
@@ -36,7 +37,7 @@ if not ty_usernames or not ty_passwords:
 accounts = [{"username": u, "password": p} for u, p in zip(ty_usernames, ty_passwords)]
 
 # 填入pushplus token
-pushplus_token = os.getenv("pushplus_token")
+pushplus_token = os.getenv("pushplus")
 
 def int2char(a):
     return BI_RM[a]
