@@ -1,3 +1,4 @@
+
 # #!/usr/bin/python3
 # # -- coding: utf-8 --
 # # @Time : 2024/9/26 8:23
@@ -9,6 +10,7 @@
 # # 变量 ty_username 用户名 &隔开  ty_password 密码 &隔开
 # # 示例 ty_username 1334567228&133222222   ty_password 123456&123456
 # # 出现验证码错误问题，概率账号风控。手动登陆网页版 输入验证码。建议一天运行一次就可以
+# #  推送变量为plustoken 
 import time
 import os
 import random
@@ -37,7 +39,7 @@ if not ty_usernames or not ty_passwords:
 accounts = [{"username": u, "password": p} for u, p in zip(ty_usernames, ty_passwords)]
 
 # 填入pushplus token
-pushplus_token = os.getenv("pushplus")
+plustoken = os.getenv("plustoken")
 
 def int2char(a):
     return BI_RM[a]
@@ -190,11 +192,11 @@ def main():
                 print(f"链接3抽奖获得{description}")
                 res4 = f"链接3抽奖获得{description}"
 
-            if pushplus_token:
+            if plustoken:
                 title = '天翼云盘签到'
                 url = 'http://www.pushplus.plus/send'
                 data = {
-                    "token": pushplus_token,
+                    "token": plustoken,
                     "title": title,
                     "content": f'{username}\n{res1}\n{res2}\n{res3}\n{res4}\n',
                 }
