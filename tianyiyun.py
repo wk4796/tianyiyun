@@ -1,4 +1,3 @@
-
 # #!/usr/bin/python3
 # # -- coding: utf-8 --
 # # @Time : 2024/9/26 8:23
@@ -10,7 +9,7 @@
 # # 变量 ty_username 用户名 &隔开  ty_password 密码 &隔开
 # # 示例 ty_username 1334567228&133222222   ty_password 123456&123456
 # # 出现验证码错误问题，概率账号风控。手动登陆网页版 输入验证码。建议一天运行一次就可以
-# #  推送变量为plustoken 
+# 修改：将推送内容合并为表格形式 避免过多推送造成困扰
 import time
 import os
 import random
@@ -27,18 +26,13 @@ B64MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 s = requests.Session()
 
-# 从环境变量获取账号信息
 ty_usernames = os.getenv("ty_username").split('&')
 ty_passwords = os.getenv("ty_password").split('&')
 
-# 检查是否正确设置了环境变量
 if not ty_usernames or not ty_passwords:
     raise ValueError("请设置环境变量 ty_username 和 ty_password")
 
-# 将用户名和密码组合成一个列表
 accounts = [{"username": u, "password": p} for u, p in zip(ty_usernames, ty_passwords)]
-
-# 填入pushplus token
 plustoken = os.getenv("plustoken")
 
 def int2char(a):
@@ -78,30 +72,21 @@ def rsa_encode(j_rsakey, string):
     result = b64tohex((base64.b64encode(rsa.encrypt(f'{string}'.encode(), pubkey))).decode())
     return result
 
-def calculate_md5_sign(params):
-    return hashlib.md5('&'.join(sorted(params.split('&'))).encode('utf-8')).hexdigest()
-
 def login(username, password):
     urlToken = "https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
     s = requests.Session()
     r = s.get(urlToken)
-    pattern = r"https?://[^\s'\"]+"  # 匹配以http或https开头的url
-    match = re.search(pattern, r.text)  # 在文本中搜索匹配
-    if match:  # 如果找到匹配
-        url = match.group()  # 获取匹配的字符串
-    else:  # 如果没有找到匹配
+    match = re.search(r"https?://[^\s'\"]+", r.text)
+    if not match:
         print("没有找到url")
         return None
-
+    url = match.group()
     r = s.get(url)
-    pattern = r"<a id=\"j-tab-login-link\"[^>]*href=\"([^\"]+)\""  # 匹配id为j-tab-login-link的a标签，并捕获href引号内的内容
-    match = re.search(pattern, r.text)  # 在文本中搜索匹配
-    if match:  # 如果找到匹配
-        href = match.group(1)  # 获取捕获的内容
-    else:  # 如果没有找到匹配
+    match = re.search(r"<a id=\"j-tab-login-link\"[^>]*href=\"([^\"]+)\"", r.text)
+    if not match:
         print("没有找到href链接")
         return None
-
+    href = match.group(1)
     r = s.get(href)
     captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
     lt = re.findall(r'lt = "(.+?)"', r.text)[0]
@@ -110,8 +95,8 @@ def login(username, password):
     j_rsakey = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
     s.headers.update({"lt": lt})
 
-    username = rsa_encode(j_rsakey, username)
-    password = rsa_encode(j_rsakey, password)
+    username_enc = rsa_encode(j_rsakey, username)
+    password_enc = rsa_encode(j_rsakey, password)
     url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0',
@@ -120,8 +105,8 @@ def login(username, password):
     data = {
         "appKey": "cloud",
         "accountType": '01',
-        "userName": f"{{RSA}}{username}",
-        "password": f"{{RSA}}{password}",
+        "userName": f"{{RSA}}{username_enc}",
+        "password": f"{{RSA}}{password_enc}",
         "validateCode": "",
         "captchaToken": captchaToken,
         "returnUrl": returnUrl,
@@ -129,7 +114,7 @@ def login(username, password):
         "paramId": paramId
     }
     r = s.post(url, data=data, headers=headers, timeout=5)
-    if r.json().get('result', None) == 0:
+    if r.json().get('result') == 0:
         print(r.json()['msg'])
     else:
         print(r.json()['msg'])
@@ -138,79 +123,109 @@ def login(username, password):
     return s
 
 def main():
+    results = []
     for account in accounts:
         username = account["username"]
         password = account["password"]
         session = login(username, password)
-        if session is not None:
-            rand = str(round(time.time() * 1000))
+        if not session:
+            results.append({
+                "username": username,
+                "status": "登录失败",
+                "sign": "",
+                "lottery1": "",
+                "lottery2": "",
+                "lottery3": ""
+            })
+            continue
+
+        rand = str(round(time.time() * 1000))
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6',
+            "Referer": "https://m.cloud.189.cn/zhuanti/2016/sign/index.jsp?albumBackupOpened=1",
+            "Host": "m.cloud.189.cn",
+            "Accept-Encoding": "gzip, deflate",
+        }
+
+        # 签到
+        sign_res = ""
+        try:
             surl = f'https://api.cloud.189.cn/mkt/userSign.action?rand={rand}&clientType=TELEANDROID&version=8.6.3&model=SM-G930K'
-            url = f'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN'
-            url2 = f'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN_PHOTOS&activityId=ACT_SIGNIN'
-            url3 = f'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_2022_FLDFS_KJ&activityId=ACT_SIGNIN'
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6',
-                "Referer": "https://m.cloud.189.cn/zhuanti/2016/sign/index.jsp?albumBackupOpened=1",
-                "Host": "m.cloud.189.cn",
-                "Accept-Encoding": "gzip, deflate",
-            }
             response = session.get(surl, headers=headers)
-            netdiskBonus = response.json()['netdiskBonus']
-            if response.json()['isSign'] == "false":
-                print(f"未签到，签到获得{netdiskBonus}M空间")
-                res1 = f"未签到，签到获得{netdiskBonus}M空间"
+            netdiskBonus = response.json().get('netdiskBonus', '0')
+            if response.json().get('isSign') == "false":
+                sign_res = f"签到成功 +{netdiskBonus}M"
             else:
-                print(f"已经签到过了，签到获得{netdiskBonus}M空间")
-                res1 = f"已经签到过了，签到获得{netdiskBonus}M空间"
+                sign_res = f"已签到 +{netdiskBonus}M"
+        except Exception as e:
+            sign_res = "签到失败"
 
+        # 抽奖1
+        lottery1 = ""
+        try:
+            url = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN'
             response = session.get(url, headers=headers)
-            if "errorCode" in response.text:
-                print(response.text)
-                res2 = ""
-            else:
-                description = response.json()['description']
-                print(f"抽奖获得{description}")
-                res2 = f"抽奖获得{description}"
+            if "errorCode" not in response.text:
+                lottery1 = response.json().get('description', '抽奖失败')
+        except:
+            lottery1 = "抽奖异常"
 
-            time.sleep(random.randint(5, 10))  
+        # 抽奖2
+        lottery2 = ""
+        try:
+            url2 = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN_PHOTOS&activityId=ACT_SIGNIN'
+            time.sleep(random.randint(1, 3))
             response = session.get(url2, headers=headers)
-            if "errorCode" in response.text:
-                print(response.text)
-                res3 = ""
-            else:
-                description = response.json()['prizeName']
-                print(f"抽奖获得{description}")
-                res3 = f"抽奖获得{description}"
+            if "errorCode" not in response.text:
+                lottery2 = response.json().get('prizeName', '抽奖失败')
+        except:
+            lottery2 = "抽奖异常"
 
-            time.sleep(random.randint(5, 10))      
+        # 抽奖3
+        lottery3 = ""
+        try:
+            url3 = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_2022_FLDFS_KJ&activityId=ACT_SIGNIN'
+            time.sleep(random.randint(1, 3))
             response = session.get(url3, headers=headers)
-            if "errorCode" in response.text:
-                print(response.text)
-                res4 = ""
-            else:
-                description = response.json()['prizeName']
-                print(f"链接3抽奖获得{description}")
-                res4 = f"链接3抽奖获得{description}"
+            if "errorCode" not in response.text:
+                lottery3 = response.json().get('prizeName', '抽奖失败')
+        except:
+            lottery3 = "抽奖异常"
 
-            if plustoken:
-                title = '天翼云盘签到'
-                url = 'http://www.pushplus.plus/send'
-                data = {
-                    "token": plustoken,
-                    "title": title,
-                    "content": f'{username}\n{res1}\n{res2}\n{res3}\n{res4}\n',
-                }
-                body = json.dumps(data).encode(encoding='utf-8')
-                headers = {'Content-Type': 'application/json'}
-                requests.post(url, data=body, headers=headers)
+        results.append({
+            "username": username,
+            "status": "成功",
+            "sign": sign_res,
+            "lottery1": lottery1,
+            "lottery2": lottery2,
+            "lottery3": lottery3
+        })
 
-def lambda_handler(event, context):  # aws default
+    # 生成表格
+    table = "| 用户名 | 状态 | 签到结果 | 每日抽奖 | 相册抽奖 | 活动抽奖 |\n"
+    table += "| :----- | :-- | :------ | :------ | :------ | :------ |\n"
+    for res in results:
+        table += f"| {res['username']} | {res['status']} | {res['sign']} | {res['lottery1']} | {res['lottery2']} | {res['lottery3']} |\n"
+
+    # 推送结果
+    if plustoken:
+        url = 'http://www.pushplus.plus/send'
+        data = {
+            "token": plustoken,
+            "title": "📢 天翼云盘签到结果",
+            "content": table,
+            "template": "markdown"
+        }
+        headers = {'Content-Type': 'application/json'}
+        requests.post(url, json=data, headers=headers)
+
+def lambda_handler(event, context):  # AWS
     main()
 
-def main_handler(event, context):  # tencent default
+def main_handler(event, context):  # 腾讯云
     main()
 
-def handler(event, context):  # aliyun default
+def handler(event, context):  # 阿里云
     main()
 
 if __name__ == "__main__":
