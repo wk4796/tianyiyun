@@ -8,6 +8,7 @@
 # 变量说明：ty_username 用户名 &隔开  ty_password 密码 &隔开
 # 5.9变更：更改推送为表格单次推送 打印日志简化 现在抽奖只能抽一次 第二次和第三次已经失效。
 # 推送变量需设置 WXPUSHER_APP_TOKEN 和 WXPUSHER_UID（多个UID用&分隔）
+# 有图形验证码就是风控了 自己去网页端登陆 输入验证码 等几天
 import time
 import os
 import random
