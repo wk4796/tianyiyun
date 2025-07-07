@@ -9,6 +9,7 @@
 # 5.9变更：更改推送为表格单次推送 打印日志简化 现在抽奖只能抽一次 第二次和第三次已经失效。
 # 推送变量需设置 WXPUSHER_APP_TOKEN 和 WXPUSHER_UID（多个UID用&分隔）
 # 有图形验证码就是风控了 自己去网页端登陆 输入验证码 等几天
+#设备锁问题请访问https://github.com/vistal8/tianyiyun/blob/main/README.md 查看详细说明
 import time
 import os
 import random
