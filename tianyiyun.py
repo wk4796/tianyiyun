@@ -8,8 +8,8 @@
 # 变量说明：ty_username 用户名 &隔开  ty_password 密码 &隔开
 # 5.9变更：更改推送为表格单次推送 打印日志简化 现在抽奖只能抽一次 第二次和第三次已经失效。
 # 推送变量需设置 WXPUSHER_APP_TOKEN 和 WXPUSHER_UID（多个UID用&分隔）
+# 新增Telegram推送变量：TELEGRAM_BOT_TOKEN 和 TELEGRAM_CHAT_ID（多个Chat ID用&分隔）
 # 有图形验证码就是风控了 自己去网页端登陆 输入验证码 等几天
-#设备锁问题请访问https://github.com/vistal8/tianyiyun/blob/main/README.md 查看详细说明
 import time
 import os
 import random
@@ -38,6 +38,11 @@ accounts = [{"username": u, "password": p} for u, p in zip(ty_usernames, ty_pass
 # WxPusher配置
 WXPUSHER_APP_TOKEN = os.getenv("WXPUSHER_APP_TOKEN")
 WXPUSHER_UIDS = os.getenv("WXPUSHER_UID", "").split('&')
+
+# Telegram配置
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_ID", "").split('&')
+
 
 def mask_phone(phone):
     """隐藏手机号中间四位"""
@@ -148,13 +153,15 @@ def login(username, password):
         return None
 
 def send_wxpusher(msg):
-    if not WXPUSHER_APP_TOKEN or not WXPUSHER_UIDS:
+    if not WXPUSHER_APP_TOKEN or not WXPUSHER_UIDS or all(uid == '' for uid in WXPUSHER_UIDS):
         print("⚠️ 未配置WxPusher，跳过消息推送")
         return
-    
+        
     url = "https://wxpusher.zjiecode.com/api/send/message"
     headers = {"Content-Type": "application/json"}
     for uid in WXPUSHER_UIDS:
+        if not uid: # 跳过空的UID
+            continue
         data = {
             "appToken": WXPUSHER_APP_TOKEN,
             "content": msg,
@@ -165,11 +172,51 @@ def send_wxpusher(msg):
         try:
             resp = requests.post(url, json=data, headers=headers, timeout=10)
             if resp.json().get('code') == 1000:
-                print(f"✅ 消息推送成功 -> UID: {uid}")
+                print(f"✅ WxPusher消息推送成功 -> UID: {uid}")
             else:
-                print(f"❌ 消息推送失败：{resp.text}")
+                print(f"❌ WxPusher消息推送失败：{resp.text}")
         except Exception as e:
-            print(f"❌ 推送异常：{str(e)}")
+            print(f"❌ WxPusher推送异常：{str(e)}")
+
+def send_telegram(results): # 接收 all_results 列表
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_IDS or all(chat_id == '' for chat_id in TELEGRAM_CHAT_IDS):
+        print("⚠️ 未配置Telegram，跳过消息推送")
+        return
+
+    # 构建 Telegram 消息内容 (纯文本)
+    telegram_msg_parts = ["⛅️ 天翼云盘签到汇总\n"] # 标题
+
+    for i, res in enumerate(results):
+        # 为每个账号添加一个分隔符，如果多于一个账号
+        if i > 0:
+            telegram_msg_parts.append("\n---\n") # 分隔线
+        
+        telegram_msg_parts.append(f"签到结果：{res['sign']}\n")
+        telegram_msg_parts.append(f"每日抽奖：{res['lottery']}")
+
+    final_telegram_msg = "".join(telegram_msg_parts)
+    
+    for chat_id in TELEGRAM_CHAT_IDS:
+        if not chat_id: # 跳过空的Chat ID
+            continue
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        headers = {"Content-Type": "application/json"}
+        
+        data = {
+            "chat_id": chat_id,
+            "text": final_telegram_msg,
+            # 移除 parse_mode，默认即为纯文本
+            # "parse_mode": "MarkdownV2" # 不再使用任何解析模式
+        }
+        try:
+            resp = requests.post(url, json=data, headers=headers, timeout=10)
+            if resp.json().get('ok'):
+                print(f"✅ Telegram消息推送成功 -> Chat ID: {chat_id}")
+            else:
+                print(f"❌ Telegram消息推送失败：{resp.text}")
+        except Exception as e:
+            print(f"❌ Telegram推送异常：{str(e)}")
+
 
 def main():
     print("\n=============== 天翼云盘签到开始 ===============")
@@ -223,15 +270,16 @@ def main():
         all_results.append(account_result)
         print(f"  {account_result['sign']} | {account_result['lottery']}")
     
-    # 生成汇总表格
-    table = "### ⛅ 天翼云盘签到汇总\n\n"
-    table += "| 账号 | 签到结果 | 每日抽奖 |\n"
-    table += "|:-:|:-:|:-:|\n"
+    # 生成WxPusher的汇总表格（保持不变）
+    wxpusher_table = "### ⛅ 天翼云盘签到汇总\n\n"
+    wxpusher_table += "| 账号 | 签到结果 | 每日抽奖 |\n"
+    wxpusher_table += "|:-:|:-:|:-:|\n"
     for res in all_results:
-        table += f"| {res['username']} | {res['sign']} | {res['lottery']} |\n"
+        wxpusher_table += f"| {res['username']} | {res['sign']} | {res['lottery']} |\n"
     
     # 发送汇总推送
-    send_wxpusher(table)
+    send_wxpusher(wxpusher_table)
+    send_telegram(all_results) # 将 all_results 列表传递给 send_telegram
     print("\n✅ 所有账号处理完成！")
 
 if __name__ == "__main__":
